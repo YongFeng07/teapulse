@@ -1,0 +1,339 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DATABASE_URL")
+}
+
+model User {
+  id            String   @id @default(cuid())
+  email         String   @unique
+  password      String
+  name          String
+  phone         String?
+  points        Int      @default(0)
+  avatar        String?
+  birthday      String?
+  emailVerified Boolean  @default(false)
+  walletBalance Float    @default(0)
+  referralCode  String?  @unique
+  referredBy    String?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  orders              Order[]
+  pointsTransactions  PointsTransaction[]
+  rewardRedemptions   RewardRedemption[]
+  reviews             Review[]
+  favourites          Favourite[]
+  dailyCheckins       DailyCheckin[]
+  verificationTokens  VerificationToken[]
+  passwordResetTokens PasswordResetToken[]
+  addresses           Address[]
+  userChallenges      UserChallenge[]
+  notifications       Notification[]
+  walletTransactions  WalletTransaction[]
+}
+
+model Category {
+  id          String   @id @default(cuid())
+  name        String   @unique
+  slug        String   @unique
+  description String?
+  sortOrder   Int      @default(0)
+  createdAt   DateTime @default(now())
+
+  drinks Drink[]
+}
+
+model Drink {
+  id           String   @id @default(cuid())
+  name         String
+  slug         String   @unique
+  description  String
+  longDesc     String   @default("")
+  price        Float
+  image        String
+  images       String   @default("") // comma-separated extra images
+  ingredients  String   @default("") // comma-separated
+  badges       String   @default("") // e.g. "Bestseller,Vegan"
+  calories     Int      @default(0)
+  rating       Float    @default(0)
+  reviewCount  Int      @default(0)
+  isPopular    Boolean  @default(false)
+  isAvailable  Boolean  @default(true)
+  isSeasonal   Boolean  @default(false)
+  categoryId   String
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  category   Category    @relation(fields: [categoryId], references: [id])
+  orderItems OrderItem[]
+  reviews    Review[]
+  favourites Favourite[]
+}
+
+model Review {
+  id        String   @id @default(cuid())
+  drinkId   String
+  userId    String
+  rating    Int      // 1-5
+  comment   String
+  image     String?
+  createdAt DateTime @default(now())
+
+  drink Drink @relation(fields: [drinkId], references: [id], onDelete: Cascade)
+  user  User  @relation(fields: [userId], references: [id])
+}
+
+model BlogPost {
+  id          String   @id @default(cuid())
+  title       String
+  slug        String   @unique
+  excerpt     String
+  content     String
+  coverImage  String
+  author      String   @default("Tea Pulse")
+  publishedAt DateTime @default(now())
+  isPublished Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+model Store {
+  id        String   @id @default(cuid())
+  name      String
+  address   String
+  city      String
+  phone     String
+  openHours String
+  isActive  Boolean  @default(true)
+  lat       Float    @default(3.1390)
+  lng       Float    @default(101.6869)
+  createdAt DateTime @default(now())
+
+  orders Order[]
+}
+
+enum OrderStatus {
+  PENDING
+  PREPARING
+  READY
+  COMPLETED
+  CANCELLED
+}
+
+model Order {
+  id           String      @id @default(cuid())
+  orderNumber  String      @unique
+  userId       String
+  storeId      String
+  status       OrderStatus @default(PENDING)
+  subtotal     Float
+  sst          Float       @default(0)
+  discount     Float       @default(0)
+  total        Float
+  pointsEarned Int         @default(0)
+  notes        String?
+  createdAt    DateTime    @default(now())
+  updatedAt    DateTime    @updatedAt
+
+  user  User        @relation(fields: [userId], references: [id])
+  store Store       @relation(fields: [storeId], references: [id])
+  items OrderItem[]
+}
+
+model OrderItem {
+  id         String @id @default(cuid())
+  orderId    String
+  drinkId    String
+  quantity   Int
+  unitPrice  Float
+  sugarLevel String
+  iceLevel   String
+  toppings   String
+  subtotal   Float
+
+  order Order @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  drink Drink @relation(fields: [drinkId], references: [id])
+}
+
+enum RewardType {
+  FREE_DRINK
+  DISCOUNT
+  VOUCHER
+}
+
+model Reward {
+  id          String     @id @default(cuid())
+  name        String
+  description String
+  pointsCost  Int
+  type        RewardType
+  value       Float?
+  isActive    Boolean    @default(true)
+  createdAt   DateTime   @default(now())
+
+  redemptions RewardRedemption[]
+}
+
+model RewardRedemption {
+  id         String   @id @default(cuid())
+  userId     String
+  rewardId   String
+  pointsUsed Int
+  code       String   @unique
+  isUsed     Boolean  @default(false)
+  createdAt  DateTime @default(now())
+
+  user   User   @relation(fields: [userId], references: [id])
+  reward Reward @relation(fields: [rewardId], references: [id])
+}
+
+enum PointsTransactionType {
+  EARNED
+  REDEEMED
+  BONUS
+  ADJUSTMENT
+}
+
+model PointsTransaction {
+  id          String                @id @default(cuid())
+  userId      String
+  amount      Int
+  type        PointsTransactionType
+  description String
+  orderId     String?
+  createdAt   DateTime              @default(now())
+
+  user User @relation(fields: [userId], references: [id])
+}
+
+model Favourite {
+  id      String @id @default(cuid())
+  userId  String
+  drinkId String
+  createdAt DateTime @default(now())
+
+  user  User  @relation(fields: [userId], references: [id], onDelete: Cascade)
+  drink Drink @relation(fields: [drinkId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, drinkId])
+}
+
+model Address {
+  id            String   @id @default(cuid())
+  userId        String
+  label         String   @default("Home")
+  recipientName String
+  phone         String
+  line1         String
+  line2         String?
+  city          String
+  state         String
+  postcode      String
+  isDefault     Boolean  @default(false)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id])
+}
+
+model VerificationToken {
+  id        String   @id @default(cuid())
+  userId    String
+  token     String   @unique
+  expiresAt DateTime
+  used      Boolean  @default(false)
+  createdAt DateTime @default(now())
+  user      User     @relation(fields: [userId], references: [id])
+}
+
+model PasswordResetToken {
+  id        String   @id @default(cuid())
+  userId    String
+  token     String   @unique
+  expiresAt DateTime
+  used      Boolean  @default(false)
+  createdAt DateTime @default(now())
+  user      User     @relation(fields: [userId], references: [id])
+}
+
+model Notification {
+  id        String   @id @default(cuid())
+  userId    String
+  type      String   // ORDER_STATUS, POINTS_EARNED, REWARD_REDEEMED, PROMOTION, SYSTEM
+  title     String
+  body      String
+  link      String?
+  isRead    Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id])
+}
+
+model DailyCheckin {
+  id        String   @id @default(cuid())
+  userId    String
+  date      DateTime @default(now())
+  streak    Int      @default(1)
+  points    Int      @default(5)
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id])
+
+  @@unique([userId, date])
+}
+
+model Challenge {
+  id          String   @id @default(cuid())
+  name        String
+  description String
+  requirement String   // e.g. "order_5_matcha" or "refer_3_friends"
+  targetCount Int      @default(5)
+  rewardPoints Int     @default(100)
+  startDate   DateTime @default(now())
+  endDate     DateTime
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+
+  userChallenges UserChallenge[]
+}
+
+model UserChallenge {
+  id          String   @id @default(cuid())
+  userId      String
+  challengeId String
+  progress    Int      @default(0)
+  completed   Boolean  @default(false)
+  createdAt   DateTime @default(now())
+
+  user      User      @relation(fields: [userId], references: [id])
+  challenge Challenge @relation(fields: [challengeId], references: [id])
+
+  @@unique([userId, challengeId])
+}
+
+model WalletTransaction {
+  id        String   @id @default(cuid())
+  userId    String
+  amount    Float
+  type      String   // TOPUP, PAYMENT, REFUND
+  description String
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id])
+}
+
+model Announcement {
+  id        String   @id @default(cuid())
+  title     String
+  body      String
+  emoji     String   @default("📢")
+  isActive  Boolean  @default(true)
+  expiresAt DateTime?
+  createdAt DateTime @default(now())
+}
